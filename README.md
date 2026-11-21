@@ -33,6 +33,7 @@ Then open http://127.0.0.1:7871. Emails are written to `/tmp/outbox.jsonl` inste
 
     python3 tests/test_app.py        # the service, over real HTTP
     python3 tests/test_browser.py    # the whole customer journey in a real browser (needs Playwright and Chrome)
+    python3 tests/test_mail.py       # the server's own signed email, against a pretend mail server
 
 ## On the server
 
@@ -53,6 +54,20 @@ Handy commands, as root:
     python3 app/server.py remove someone@example.com
     python3 app/server.py testmail you@example.com
     python3 tests/smoke.py                          # check the running service end to end (makes and deletes a throwaway page)
+
+## Sign-in emails
+
+The server sends them itself, straight to the other person's mail server, signed for the
+domain (DKIM). No outside service or password is involved. Three DNS records make other mail
+servers trust them: SPF, DKIM and DMARC.
+
+    python3 app/server.py mailkey     # makes the signing key once, prints the three records
+    python3 app/server.py mailcheck   # checks the records are in the DNS and right
+    python3 app/server.py testmail you@example.com
+
+If mail to some provider keeps going to spam or being refused, switch to a sending service
+with `python3 deploy/set-mail.py`. Once that is set, it is used instead. Meanwhile the owner
+page's **Sign-in link** button makes a link you can text to anyone whose email does not arrive.
 
 ## What is kept, and where
 

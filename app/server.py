@@ -13,7 +13,11 @@ Python standard library only. Runs behind a web server (Caddy) on a loopback por
   server.py add EMAIL MOBILE BUSINESS NAME   make a page for a business and print its sign-in link
   server.py remove EMAIL    delete that business's page, settings and logo
   server.py testmail EMAIL  send a test email with the mail settings in the environment
+  server.py mailkey         make the mail-signing key if there is none, and print the DNS records to add
+  server.py mailcheck       check those DNS records are in place and right
 """
+import base64
+import email.policy
 import hashlib
 import hmac
 import html
@@ -24,13 +28,15 @@ import queue
 import re
 import secrets
 import smtplib
+import socket
 import sqlite3
 import ssl
+import subprocess
 import sys
 import threading
 import time
 from email.message import EmailMessage
-from email.utils import formatdate, make_msgid
+from email.utils import formatdate, make_msgid, parseaddr
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
@@ -57,6 +63,13 @@ SMTP_USER = env('QP_SMTP_USER')
 SMTP_PASS = os.environ.get('QP_SMTP_PASS', '')
 SMTP_SECURITY = env('QP_SMTP_SECURITY', 'ssl').lower()  # ssl | starttls
 MAIL_FROM = env('QP_MAIL_FROM')
+REPLY_TO = env('QP_REPLY_TO')
+# With no sending service set up, the server can deliver its own mail, signed for the site's domain.
+DIRECT_MAIL = env('QP_DIRECT_MAIL') == '1'
+HELO = env('QP_HELO') or socket.getfqdn()
+DKIM_SELECTOR = env('QP_DKIM_SELECTOR', 'qp1')
+DKIM_KEY = env('QP_DKIM_KEY', os.path.join(DATA, 'dkim.pem'))
+TEST_MX = env('QP_TEST_MX')  # tests only: "host:port" to deliver to instead of looking up the real mail server
 DEV_OUTBOX = env('QP_DEV_OUTBOX')  # tests only: write emails to this file instead of sending them
 
 SECURE = BASE_URL.startswith('https://')
@@ -447,7 +460,7 @@ def shell(title, body, nonce, wide=False, bare=False):
 
 
 def mail_on():
-    return bool(DEV_OUTBOX or (SMTP_HOST and MAIL_FROM))
+    return bool(DEV_OUTBOX or (SMTP_HOST and MAIL_FROM) or (DIRECT_MAIL and MAIL_FROM and os.path.exists(DKIM_KEY)))
 
 
 def no_mail_card():
@@ -683,25 +696,123 @@ def inactive_page(nonce, acc, mine):
 mail_queue = queue.Queue(maxsize=200)
 
 
+def mail_domain():
+    return parseaddr(MAIL_FROM)[1].rsplit('@', 1)[-1].lower() if '@' in MAIL_FROM else 'localhost'
+
+
 def build_message(to, subject, body):
     msg = EmailMessage()
     msg['From'] = MAIL_FROM or f'{SITE_NAME} <noreply@localhost>'
     msg['To'] = to
     msg['Subject'] = subject
     msg['Date'] = formatdate(localtime=False)
-    domain = (MAIL_FROM.rsplit('@', 1)[-1].strip('> ') if '@' in MAIL_FROM else 'localhost')
-    msg['Message-ID'] = make_msgid(domain=domain)
+    msg['Message-ID'] = make_msgid(domain=mail_domain())
+    if REPLY_TO:
+        msg['Reply-To'] = REPLY_TO
     msg['Auto-Submitted'] = 'auto-generated'
-    msg.set_content(body)
+    msg.set_content(body, cte='7bit' if body.isascii() else 'quoted-printable')
     return msg
+
+
+class TryLater(Exception):
+    """The other end is busy or asked us to come back. Worth another go in a minute."""
+
+
+class Refused(Exception):
+    """The other end said no for good (no such mailbox, or it will not take our mail)."""
+
+
+def dkim_public_record():
+    """The DNS record that lets other mail servers check our signature: (name, value)."""
+    der = subprocess.run(['openssl', 'rsa', '-in', DKIM_KEY, '-pubout', '-outform', 'DER'], capture_output=True, check=True).stdout
+    return f'{DKIM_SELECTOR}._domainkey', 'v=DKIM1; k=rsa; p=' + base64.b64encode(der).decode()
+
+
+def dkim_sign(raw):
+    """Put a DKIM-Signature header on the front of a finished message (bytes, CRLF line ends).
+    RFC 6376, relaxed/relaxed, rsa-sha256. The signing itself is done by openssl."""
+    head, _, body = raw.partition(b'\r\n\r\n')
+    lines = [re.sub(rb'[ \t]+', b' ', line).rstrip(b' ') for line in body.split(b'\r\n')]
+    while lines and lines[-1] == b'':
+        lines.pop()
+    canon_body = b'\r\n'.join(lines) + b'\r\n' if lines else b''
+    body_hash = base64.b64encode(hashlib.sha256(canon_body).digest()).decode()
+    fields = []
+    for line in head.split(b'\r\n'):
+        if line[:1] in (b' ', b'\t') and fields:
+            fields[-1][1] += line  # a folded line: join it back on
+        else:
+            name, _, value = line.partition(b':')
+            fields.append([name, value])
+    canon = lambda name, value: name.lower().strip() + b':' + re.sub(rb'[ \t]+', b' ', value).strip(b' ')
+    have = {name.lower().decode('ascii', 'replace'): (name, value) for name, value in fields}
+    signed = [n for n in ('from', 'to', 'subject', 'date', 'message-id', 'reply-to', 'mime-version', 'content-type', 'content-transfer-encoding') if n in have]
+    tags = (f"v=1; a=rsa-sha256; c=relaxed/relaxed; d={mail_domain()}; s={DKIM_SELECTOR}; t={now()}; "
+            f"h={':'.join(signed)}; bh={body_hash}; b=")
+    to_sign = b''.join(canon(*have[n]) + b'\r\n' for n in signed) + canon(b'dkim-signature', tags.encode())
+    done = subprocess.run(['openssl', 'dgst', '-sha256', '-sign', DKIM_KEY], input=to_sign, capture_output=True)
+    if done.returncode != 0 or not done.stdout:
+        raise RuntimeError('could not sign the email: ' + done.stderr.decode('utf-8', 'replace')[:200])
+    sig = base64.b64encode(done.stdout).decode()
+    folded = tags.replace('; ', ';\r\n\t') + '\r\n\t'.join(sig[i:i + 70] for i in range(0, len(sig), 70))
+    return b'DKIM-Signature: ' + folded.encode() + b'\r\n' + raw
+
+
+def mail_servers(domain):
+    """Where mail for this domain goes, best first: [(host, port)]."""
+    if TEST_MX:
+        host, _, port = TEST_MX.partition(':')
+        return [(host, int(port or 25))]
+    out = subprocess.run(['dig', '+short', '+time=4', '+tries=2', 'MX', domain], capture_output=True, text=True, timeout=20).stdout
+    found = []
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and parts[0].isdigit():
+            if parts[1] == '.':
+                raise Refused(f'{domain} does not take email')
+            found.append((int(parts[0]), parts[1].rstrip('.')))
+    return [(host, 25) for _, host in sorted(found)] or [(domain, 25)]
+
+
+def deliver_direct(to, raw):
+    """Hand a signed message straight to the recipient's mail server."""
+    sender = parseaddr(MAIL_FROM)[1]
+    last = 'no mail server answered'
+    for host, port in mail_servers(to.rsplit('@', 1)[-1])[:4]:
+        try:
+            ip = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]  # IPv4: it is what our SPF record lists
+            with smtplib.SMTP(ip, port, local_hostname=HELO, timeout=25) as s:
+                s.ehlo()
+                if s.has_extn('starttls'):
+                    ctx = ssl.create_default_context()
+                    ctx.check_hostname = False  # mail between servers encrypts when it can; certificates are not checked
+                    ctx.verify_mode = ssl.CERT_NONE
+                    s.starttls(context=ctx)
+                    s.ehlo()
+                s.sendmail(sender, [to], raw)
+                return host
+        except smtplib.SMTPRecipientsRefused as err:
+            code, text_ = next(iter(err.recipients.values()))
+            last = f'{code} {text_[:160]!r}'
+            if 500 <= code < 600:
+                raise Refused(last)
+        except smtplib.SMTPResponseException as err:
+            last = f'{err.smtp_code} {str(err.smtp_error)[:160]}'
+            if 500 <= err.smtp_code < 600:
+                raise Refused(last)
+        except (OSError, smtplib.SMTPException) as err:
+            last = f'{type(err).__name__}: {str(err)[:160]}'
+    raise TryLater(last)
 
 
 def deliver(to, subject, body):
     if DEV_OUTBOX:
         with open(DEV_OUTBOX, 'a', encoding='utf-8') as f:
             f.write(json.dumps({'to': to, 'subject': subject, 'body': body}) + '\n')
-        return
+        return 'the test outbox'
     msg = build_message(to, subject, body)
+    if not SMTP_HOST:
+        return deliver_direct(to, dkim_sign(msg.as_bytes(policy=email.policy.SMTP)))
     ctx = ssl.create_default_context()
     if SMTP_SECURITY == 'starttls':
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as s:
@@ -714,18 +825,31 @@ def deliver(to, subject, body):
             if SMTP_USER:
                 s.login(SMTP_USER, SMTP_PASS)
             s.send_message(msg)
+    return SMTP_HOST
+
+
+RETRY_AFTER = (20, 90, 300)  # seconds. A sign-in link only lasts half an hour, so give up after a few tries
+if env('QP_TEST_RETRY'):  # tests only: shorter waits
+    RETRY_AFTER = tuple(float(x) for x in env('QP_TEST_RETRY').split(','))
 
 
 def mail_worker():
     while True:
-        to, subject, body = mail_queue.get()
-        for attempt in (1, 2):
-            try:
-                deliver(to, subject, body)
-                break
-            except Exception as err:  # the reason goes to the service log; the link never does
-                log(f'mail: attempt {attempt} to {to.split("@")[-1]} failed: {type(err).__name__}: {str(err)[:200]}')
-                time.sleep(3)
+        to, subject, body, attempt = mail_queue.get()
+        where = to.rsplit('@', 1)[-1]
+        try:
+            via = deliver(to, subject, body)
+            log(f'mail: sent to someone at {where} through {via}')
+        except Refused as err:  # the reason goes to the service log; the link never does
+            log(f'mail: {where} refused it: {err}')
+        except Exception as err:
+            if attempt < len(RETRY_AFTER):
+                log(f'mail: try {attempt + 1} to {where} failed, will try again: {type(err).__name__}: {str(err)[:200]}')
+                again = threading.Timer(RETRY_AFTER[attempt], mail_queue.put, [(to, subject, body, attempt + 1)])
+                again.daemon = True
+                again.start()
+            else:
+                log(f'mail: gave up on {where}: {type(err).__name__}: {str(err)[:200]}')
 
 
 def make_link(db, email, purpose='signin', payload=None, seconds=TOKEN_MINUTES * 60):
@@ -747,7 +871,7 @@ def send_link(db, email, purpose, payload=None, business=''):
     body = (f'Hi,\n\n{lead}\n\n{url}\n\nIt works once and runs out in {TOKEN_MINUTES} minutes. '
             f"If you didn't ask for this, ignore this email and nothing happens.\n\n{SITE_NAME}\n{BASE_URL}\n")
     try:
-        mail_queue.put_nowait((email, subject, body))
+        mail_queue.put_nowait((email, subject, body, 0))
     except queue.Full:
         log('mail: queue full, dropped a message')
     return url
@@ -942,6 +1066,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(200, 'ok\n', 'text/plain; charset=utf-8')
         if path == '/api/open':  # the demo asks this before it offers "Make my page"
             return self.json(200, {'signup': mail_on()})
+        if path == '/api/dkim':  # the public half of the mail-signing key, for the domain's DNS. Public by design
+            if not (DIRECT_MAIL and os.path.exists(DKIM_KEY)):
+                raise Halt(404, 'Not found', 'text/plain; charset=utf-8')
+            name, value = dkim_public_record()
+            return self.json(200, {'name': name, 'value': value})
         if path in ('/', '/index.html'):
             return self.reply(200, TPL.demo, headers={'Cache-Control': 'no-cache'}, csp='')
         if path == '/robots.txt':
@@ -1396,9 +1525,42 @@ def cli_testmail(to):
     if not to:
         raise SystemExit('That is not an email address.')
     if not mail_on():
-        raise SystemExit('Mail is not set up: QP_SMTP_HOST and QP_MAIL_FROM are empty.')
-    deliver(to, f'Test email: {SITE_NAME}', f'This is a test from {SITE_NAME} ({BASE_URL}).\nIf you can read it, sign-in emails will work.\n')
-    print(f'Sent a test email to {to}.')
+        raise SystemExit('Mail is not set up: no sending service, and direct sending is off or has no key.')
+    try:
+        via = deliver(to, f'Test email: {SITE_NAME}', f'This is a test from {SITE_NAME} ({BASE_URL}).\nIf you can read it, sign-in emails will work.\n')
+    except (Refused, TryLater) as err:
+        raise SystemExit(f'Not sent: {err}')
+    print(f'Sent a test email to {to} through {via}.')
+
+
+def dns_records():
+    name, value = dkim_public_record()
+    ip = env('QP_MAIL_IP')
+    return [('@', f'v=spf1 ip4:{ip} ~all' if ip else 'v=spf1 a ~all'), (name, value), ('_dmarc', 'v=DMARC1; p=none')]
+
+
+def cli_mailkey():
+    as_data_owner()
+    if not os.path.exists(DKIM_KEY):
+        os.makedirs(os.path.dirname(DKIM_KEY), exist_ok=True)
+        subprocess.run(['openssl', 'genrsa', '-out', DKIM_KEY, '2048'], check=True, capture_output=True)
+        os.chmod(DKIM_KEY, 0o600)
+        print(f'Made a new mail-signing key: {DKIM_KEY}')
+    print(f'Add these TXT records to the DNS of {mail_domain()}:')
+    for name, value in dns_records():
+        print(f'\n  name:  {name}\n  value: {value}')
+
+
+def cli_mailcheck():
+    ok = True
+    for name, want in dns_records():
+        host = mail_domain() if name == '@' else f'{name}.{mail_domain()}'
+        out = subprocess.run(['dig', '+short', 'TXT', host, '@1.1.1.1'], capture_output=True, text=True, timeout=20).stdout
+        got = [''.join(re.sub(r'\\(.)', r'\1', part) for part in re.findall(r'"((?:[^"\\]|\\.)*)"', line)) for line in out.splitlines()]
+        right = want in got
+        ok = ok and right
+        print(('OK     ' if right else 'WRONG  ') + host + ('' if right else f'\n         want: {want[:70]}...\n         got:  {[g[:70] for g in got]}'))
+    raise SystemExit(0 if ok else 1)
 
 
 if __name__ == '__main__':
@@ -1411,6 +1573,10 @@ if __name__ == '__main__':
         cli_remove(args[1])
     elif args[:1] == ['testmail'] and len(args) == 2:
         cli_testmail(args[1])
+    elif args == ['mailkey']:
+        cli_mailkey()
+    elif args == ['mailcheck']:
+        cli_mailcheck()
     elif not args or args == ['serve']:
         serve()
     else:
