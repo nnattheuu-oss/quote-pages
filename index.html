@@ -304,9 +304,19 @@ body { margin: 0; background: var(--qw-cream); color: var(--qw-ink); font: 16px/
 .qs-actions .qw-btn { flex: 1 1 200px; }
 .qs-out { width: 100%; min-height: 12rem; padding: 10px; border: 2px solid var(--qw-line); border-radius: 6px; font: 0.82rem/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .qs-status { font-weight: 700; color: var(--qw-green-deep); min-height: 1.5em; }
+.qs-logo-now { display: flex; align-items: center; min-height: 72px; padding: 8px 12px; border: 2px dashed var(--qw-line); border-radius: 6px; color: var(--qw-muted); font-size: 0.94rem; }
+.qs-logo-now img { display: block; max-height: 56px; max-width: 100%; width: auto; height: auto; }
+.qs-file { position: relative; cursor: pointer; }
+.qs-file:focus-within { outline: 3px solid var(--qw-focus); outline-offset: 2px; }
+.qs-filein { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.qs-colour input { padding: 4px; height: 48px; cursor: pointer; }
+.qs-savebar { position: sticky; bottom: 0; z-index: 5; display: flex; flex-direction: column; gap: 6px; margin: 0 -16px -18px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); background: #fff; border-top: 3px solid var(--qw-green); border-radius: 0 0 8px 8px; }
+.qs-savebar .qs-status { min-height: 0; }
+.qs-savebar .qs-status:empty { display: none; }
 .sell-bar { background: #1f2a2e; color: #fff; padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .sell-bar-inner { max-width: 640px; margin: 0 auto; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .sell-bar p { margin: 0; flex: 1 1 220px; font-size: 0.92rem; line-height: 1.35; }
+.sell-bar a { color: #f0c98a; font-weight: 700; }
 .sell-bar b { font-family: var(--qw-display); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.78rem; color: #f0c98a; display: block; }
 .sell-bar button { flex: 0 0 auto; min-height: 44px; padding: 0 16px; border: 0; border-radius: 6px; background: #f0c98a; color: #1f2a2e; font-family: var(--qw-display); font-weight: 700; font-size: 0.92rem; letter-spacing: 0.04em; cursor: pointer; }
 .sell-offer { background: #1f2a2e; color: #eef3f1; padding-block: 34px 44px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
@@ -337,6 +347,9 @@ body { margin: 0; background: var(--qw-cream); color: var(--qw-ink); font: 16px/
 .sell-how { display: flex; flex-direction: column; gap: 8px; }
 .sell-how h3 { margin: 0; font-family: var(--qw-display); font-size: 1.05rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #f0c98a; }
 .sell-how ol { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; }
+.sell-cta { display: inline-flex; align-items: center; justify-content: center; align-self: flex-start; min-height: 48px; padding: 0 22px; border-radius: 6px; background: #f0c98a; color: #1f2a2e; font-family: var(--qw-display); font-weight: 700; font-size: 1rem; letter-spacing: 0.04em; text-decoration: none; }
+.sell-cta:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.sell-fine a { color: #f0c98a; font-weight: 700; }
 
 </style>
 </head>
@@ -473,7 +486,8 @@ body { margin: 0; background: var(--qw-cream); color: var(--qw-ink); font: 16px/
       </div>
     </div>
 
-    <div class="sell-how">
+    <!-- Two versions of "how to get yours". The first shows until the site says online sign-up is open (see sell.js). -->
+    <div class="sell-how when-closed">
       <h3>See yours before you pay</h3>
       <ol>
         <li>Text Matt your business name and mobile number.</li>
@@ -481,10 +495,21 @@ body { margin: 0; background: var(--qw-cream); color: var(--qw-ink); font: 16px/
         <li>Keep it and pay, or walk away and owe nothing.</li>
       </ol>
     </div>
+    <div class="sell-how when-open" hidden>
+      <h3>See yours before you pay</h3>
+      <ol>
+        <li>Make your own page. It takes your business name, mobile and email.</li>
+        <li>Put in your logo, colour and prices. It's yours to try free for 14 days. No card needed.</li>
+        <li>Keep it and pay, or walk away and owe nothing.</li>
+      </ol>
+      <a class="sell-cta" href="/start">Make my page</a>
+      <p class="sell-fine">Rather not do it yourself? Text Matt your business name and mobile number and he'll set it up for you. Already have a page? <a href="/signin">Sign in</a>.</p>
+    </div>
 
     <div class="sell-how">
       <h3>Looking after it</h3>
-      <p>No monthly fee. Your phone number, prices and wording sit in one short list at the top of the page file. You, your web person or Matt can change them in a minute. Jobs can come by email as well as text if you want that.</p>
+      <p class="when-closed">No monthly fee. Your phone number, prices and wording sit in one short list at the top of the page file. You, your web person or Matt can change them in a minute. Jobs can come by email as well as text if you want that.</p>
+      <p class="when-open" hidden>No monthly fee. Sign in with your email to change your logo, colour, prices and wording whenever you like. There's no password to remember. Jobs can come by email as well as text if you want that.</p>
     </div>
 
     <div class="sell-contact">
@@ -2174,6 +2199,10 @@ window.QUOTE_SETTINGS_BACKUP = {"businessName": "Demo Tree Co", "phone": "0491 5
  *
  * It only ever changes the page on the device in front of you. The live page changes when the
  * copied settings are pasted over the settings block in the page file.
+ *
+ * On a hosted page the server sets window.QUOTE_ACCOUNT. For the signed-in owner of the page it
+ * carries the addresses to save to, and this screen gets a Save button, a logo and a colour.
+ * For everyone else on a hosted page it says `locked`, and this screen never opens.
  */
 (function () {
   'use strict';
@@ -2185,6 +2214,12 @@ window.QUOTE_SETTINGS_BACKUP = {"businessName": "Demo Tree Co", "phone": "0491 5
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   let draft = null; // the settings being edited
   let timer = 0;
+  let saved = null; // what the live page has now, to go back to if changes are dropped
+  let dirty = false; // typed but not yet saved
+  let warned = false;
+  const ACC = window.QUOTE_ACCOUNT || null;
+  // The sales demo hands over to sign-up only once the site has said sign-up is open (sell.js asks it).
+  const signupOpen = () => !ACC && window.QUOTE_SIGNUP_OPEN === true;
 
   // [setting, label, +1 for "% more" or -1 for "% less"]
   const ADJUST = [
@@ -2269,10 +2304,12 @@ window.QUOTE_SETTINGS_BACKUP = {"businessName": "Demo Tree Co", "phone": "0491 5
   /* ---------- the screen ---------- */
   function draw() {
     const demo = draft.demo;
+    const mine = !!(ACC && ACC.save);
+    const SIGNUP = signupOpen();
     const priced = draft.showPrices !== false;
     let h = `<section class="qs" aria-labelledby="qs-h">
-      <div class="qs-head"><div><h2 id="qs-h" tabindex="-1">${demo ? 'Put your prices in' : 'Your settings'}</h2>
-      <p class="qw-note">${demo ? 'Nothing leaves this screen. It only changes the demo on your device, and the page below updates as you type.' : 'This only changes what you see on this device. To change the live page, copy the settings and paste them over the settings block in the page file.'}</p></div>
+      <div class="qs-head"><div><h2 id="qs-h" tabindex="-1">${mine ? 'Edit your page' : demo ? 'Put your prices in' : 'Your settings'}</h2>
+      <p class="qw-note">${mine ? `Your page address is <strong>${esc(ACC.url || '')}</strong>. The page below changes as you type, on this device only. Press Save to put your changes on your live page.` : demo ? 'Nothing leaves this screen. It only changes the demo on your device, and the page below updates as you type.' : 'This only changes what you see on this device. To change the live page, copy the settings and paste them over the settings block in the page file.'}</p></div>
       <button type="button" class="qs-close" id="qs-close">Close</button></div>
       <ul class="qs-problems" id="qs-problems" hidden></ul>
 
@@ -2280,7 +2317,9 @@ window.QUOTE_SETTINGS_BACKUP = {"businessName": "Demo Tree Co", "phone": "0491 5
         ${words('businessName', 'Business name', { wide: true })}
         ${words('phone', 'Mobile number', { hint: 'jobs are texted here', max: 24, attrs: 'inputmode="tel"' })}
         ${words('baseSuburb', 'Base suburb', { hint: 'travel is measured from here' })}
+        ${mine ? words('email', 'Email shown on your page', { wide: true, hint: 'optional', max: 120, attrs: 'inputmode="email" autocapitalize="off" spellcheck="false"' }) : ''}
       </div></div>
+      ${mine ? accountGroups() : ''}
 
       <div class="qs-group"><h3>Do customers see a price?</h3>
         <div class="qs-seg" role="group" aria-label="Do customers see a price?">
@@ -2316,18 +2355,143 @@ window.QUOTE_SETTINGS_BACKUP = {"businessName": "Demo Tree Co", "phone": "0491 5
       <div class="qs-grid">${[0, 1, 2].map((i) => words('trust.' + i, 'Line under your logo ' + (i + 1), { max: 40 })).join('')}</div>
     </div>
 
-    <div class="qs-group"><h3>${demo ? 'Happy with it?' : 'Save it'}</h3>
-      <p>${demo ? 'Copy your settings and text them to Matt on 0497 965 701. That is everything he needs to build your page.' : 'Copy your settings, then paste them over the whole settings block at the top of the page file and save it.'}</p>
-      <div class="qs-actions"><button type="button" class="qw-btn qw-next" id="qs-copy">Copy my settings</button></div>
+    ${mine ? `<div class="qs-savebar">
+      <button type="button" class="qw-btn qw-next" id="qs-save">Save my page</button>
+      <p class="qs-status" id="qs-status" role="status"></p>
+    </div>` : `<div class="qs-group"><h3>${demo ? 'Happy with it?' : 'Save it'}</h3>
+      <p>${demo ? (SIGNUP ? 'Make your own page with these settings. It is free to try for 14 days. Or copy them and text them to Matt on 0497 965 701.' : 'Copy your settings and text them to Matt on 0497 965 701. That is everything he needs to build your page.') : 'Copy your settings, then paste them over the whole settings block at the top of the page file and save it.'}</p>
+      <div class="qs-actions">${demo && SIGNUP ? '<a class="qw-btn qw-next" id="qs-make" href="/start">Make my page with these</a>' : ''}<button type="button" class="qw-btn ${demo && SIGNUP ? '' : 'qw-next'}" id="qs-copy">Copy my settings</button></div>
       <p class="qs-status" id="qs-status" role="status"></p>
       <textarea class="qs-out" id="qs-out" readonly hidden aria-label="Your settings"></textarea>
-    </div></section>`;
+    </div>`}</section>`;
     box.innerHTML = h;
     drawLive();
   }
 
+  /* ---------- the signed-in owner's extras: logo, colour, where jobs go, and Save ---------- */
+  function accountGroups() {
+    return `<div class="qs-group"><h3>Your logo and colour</h3>
+        <div class="qs-logo-now" id="qs-logo-now">${draft.logo ? `<img src="${esc(draft.logo)}" alt="Your logo">` : 'No logo yet. Your business name is shown instead.'}</div>
+        <div class="qs-actions"><label class="qw-btn qs-file">${draft.logo ? 'Change the logo' : 'Add a logo'}<input type="file" class="qs-filein" id="qs-logo-file" accept="image/*"></label>${draft.logo ? '<button type="button" class="qw-btn" id="qs-logo-remove">Remove the logo</button>' : ''}</div>
+        <p class="qs-status" id="qs-logo-status" role="status"></p>
+        <p class="qw-note">A PNG or JPG works best. A logo goes on your live page as soon as it uploads.</p>
+        <div class="qs-grid"><label class="qs-f"><span>Main colour</span><span class="qs-in qs-colour"><input type="color" data-path="colour" data-words="1" value="${esc(draft.colour)}" aria-label="Main colour"></span></label></div>
+      </div>
+      <div class="qs-group"><details><summary>Where jobs go</summary><p class="qw-note">Jobs are texted to your mobile number above. Fill these in only if you want something different.</p><div class="qs-grid">
+        ${words('textJobsTo', 'Text jobs to a different mobile', { wide: true, max: 24, attrs: 'inputmode="tel"' })}
+        ${words('emailKey', 'Web3Forms key', { wide: true, hint: 'to also get jobs by email', max: 80, attrs: 'autocapitalize="off" spellcheck="false"' })}
+      </div></details></div>`;
+  }
+
+  // Send something to the server as the signed-in owner. Gives back the server's answer, or throws its message.
+  async function send(url, body, type) {
+    const headers = { 'X-CSRF': ACC.csrf };
+    if (type) headers['Content-Type'] = type;
+    let res;
+    try {
+      res = await fetch(url, { method: 'POST', credentials: 'same-origin', headers, body });
+    } catch (err) {
+      throw new Error("Couldn't reach the server. Check your connection and try again.");
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || "That didn't work. Try again in a minute.");
+    return data;
+  }
+
+  async function save() {
+    clearTimeout(timer);
+    apply();
+    const status = box.querySelector('#qs-status');
+    const btn = box.querySelector('#qs-save');
+    status.textContent = 'Saving…';
+    btn.disabled = true;
+    try {
+      const now = Q.normalise(draft);
+      await send(ACC.save, JSON.stringify({ settings: now }), 'application/json');
+      saved = JSON.parse(JSON.stringify(now));
+      dirty = false;
+      status.textContent = 'Saved. Your live page is up to date.';
+    } catch (err) {
+      status.textContent = err.message;
+    }
+    btn.disabled = false;
+  }
+
+  // Draw the chosen picture small enough for a page header and hand it back as a PNG, whatever it started as.
+  function shrink(file) {
+    const sorry = "That picture couldn't be read. Try a PNG or JPG.";
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        if (!img.naturalWidth || !img.naturalHeight) return reject(new Error(sorry));
+        const scale = Math.min(1, 640 / img.naturalWidth, 240 / img.naturalHeight);
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(img.naturalWidth * scale));
+        c.height = Math.max(1, Math.round(img.naturalHeight * scale));
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        c.toBlob((b) => (b ? resolve(b) : reject(new Error(sorry))), 'image/png');
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error(sorry));
+      };
+      img.src = url;
+    });
+  }
+
+  let uploading = false;
+  async function pickLogo(input) {
+    const file = input.files && input.files[0];
+    if (!file || uploading) return;
+    uploading = true;
+    box.querySelector('#qs-logo-status').textContent = 'Uploading…';
+    let said;
+    try {
+      const blob = await shrink(file);
+      const data = await send(ACC.logo, blob, 'image/png');
+      draft.logo = data.logo;
+      if (saved) saved.logo = data.logo;
+      said = 'Logo saved. It is on your live page now.';
+    } catch (err) {
+      said = err.message;
+    }
+    uploading = false;
+    draw();
+    apply();
+    box.querySelector('#qs-logo-status').textContent = said;
+  }
+
+  async function removeLogo() {
+    let said;
+    try {
+      await send(ACC.logo + '/remove', '', 'text/plain');
+      draft.logo = '';
+      if (saved) saved.logo = '';
+      said = 'Logo removed. Your business name is shown instead.';
+    } catch (err) {
+      said = err.message;
+    }
+    draw();
+    apply();
+    box.querySelector('#qs-logo-status').textContent = said;
+  }
+
+  // Demo only: keep what was typed so the sign-up page can start the new page from it.
+  function stash() {
+    clearTimeout(timer);
+    try {
+      sessionStorage.setItem('qp-start', JSON.stringify(Object.assign(Q.normalise(draft), { demo: false, logo: '' })));
+    } catch (err) {
+      /* no storage here: sign-up still works, starting from the example prices */
+    }
+  }
+
   function onInput(e) {
     const el = e.target;
+    // A file box fires both "input" and "change" for one pick. Upload once.
+    if (el.id === 'qs-logo-file') return e.type === 'change' ? pickLogo(el) : undefined;
     if (el.dataset.check) set(el.dataset.check, el.checked);
     else if (el.dataset.path) {
       if (el.dataset.words) set(el.dataset.path, el.value);
@@ -2338,9 +2502,25 @@ window.QUOTE_SETTINGS_BACKUP = {"businessName": "Demo Tree Co", "phone": "0491 5
         set(el.dataset.path, el.dataset.sense ? value * Number(el.dataset.sense) : value);
       }
     } else return;
+    dirty = true;
+    warned = false;
     box.querySelector('#qs-status').textContent = '';
     clearTimeout(timer);
     timer = setTimeout(apply, 250);
+  }
+
+  // The owner pressed Close with changes not saved: say so once, and drop them only if they press it again.
+  function tryClose() {
+    if (ACC && ACC.save && dirty) {
+      if (!warned) {
+        warned = true;
+        box.querySelector('#qs-status').textContent = 'Not saved yet. Press Save my page to keep your changes, or Close again to drop them.';
+        return;
+      }
+      clearTimeout(timer);
+      if (saved && window.QuotePage) window.QuotePage.apply(saved);
+    }
+    close();
   }
 
   async function copy() {
@@ -2367,11 +2547,16 @@ window.QUOTE_SETTINGS_BACKUP = {"businessName": "Demo Tree Co", "phone": "0491 5
   }
 
   function onClick(e) {
+    if (e.target.closest('#qs-make')) return stash();
     const t = e.target.closest('button');
     if (!t) return;
-    if (t.id === 'qs-close') return close();
+    if (t.id === 'qs-close') return tryClose();
     if (t.id === 'qs-copy') return copy();
+    if (t.id === 'qs-save') return save();
+    if (t.id === 'qs-logo-remove') return removeLogo();
     if (t.dataset.show) {
+      dirty = true;
+      warned = false;
       draft.showPrices = t.dataset.show === '1';
       // Switching prices on with nothing typed yet: start from the example figures.
       if (draft.showPrices) {
@@ -2385,8 +2570,12 @@ window.QUOTE_SETTINGS_BACKUP = {"businessName": "Demo Tree Co", "phone": "0491 5
   }
 
   function open() {
+    if (ACC && ACC.locked) return;
     const now = window.QuotePage ? window.QuotePage.settings() : Q.normalise(window.QUOTE_SETTINGS);
     draft = JSON.parse(JSON.stringify(now));
+    saved = JSON.parse(JSON.stringify(now));
+    dirty = false;
+    warned = false;
     while (draft.trust.length < 3) draft.trust.push('');
     box.hidden = false;
     draw();
@@ -2395,6 +2584,7 @@ window.QUOTE_SETTINGS_BACKUP = {"businessName": "Demo Tree Co", "phone": "0491 5
     if (head) head.focus({ preventScroll: true });
   }
   function close() {
+    dirty = false;
     box.hidden = true;
     box.innerHTML = '';
   }
@@ -2402,6 +2592,13 @@ window.QUOTE_SETTINGS_BACKUP = {"businessName": "Demo Tree Co", "phone": "0491 5
   box.addEventListener('input', onInput);
   box.addEventListener('change', onInput);
   box.addEventListener('click', onClick);
+  // Leaving the page with changes not saved: let the browser ask first.
+  window.addEventListener('beforeunload', (e) => {
+    if (ACC && ACC.save && dirty && !box.hidden) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
   window.QuoteSetup = { open, close };
   if (/[?&#]setup\b/.test(String(location.search) + String(location.hash))) open();
 })();
@@ -2413,6 +2610,19 @@ window.QUOTE_SETTINGS_BACKUP = {"businessName": "Demo Tree Co", "phone": "0491 5
   'use strict';
   var by = function (id) { return document.getElementById(id); };
   var offer = by('offer');
+  // Ask the site whether businesses can sign up themselves yet. Until it says yes (or if this is
+  // a file on a computer, or the answer never comes) the page keeps saying "text Matt".
+  if (offer && /^https?:$/.test(location.protocol) && window.fetch) {
+    fetch('/api/open', { credentials: 'omit' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || d.signup !== true) return;
+        window.QUOTE_SIGNUP_OPEN = true;
+        document.querySelectorAll('.when-open').forEach(function (x) { x.hidden = false; });
+        document.querySelectorAll('.when-closed').forEach(function (x) { x.hidden = true; });
+      })
+      .catch(function () {});
+  }
   if (by('sell-jump') && offer) by('sell-jump').addEventListener('click', function () { offer.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   if (by('sell-prices')) by('sell-prices').addEventListener('click', function () { if (window.QuoteSetup) window.QuoteSetup.open(); });
   var copy = by('sell-copy');

@@ -1,0 +1,33 @@
+[Unit]
+Description=Tree quote pages: sign-in and one page per business
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=quotepages
+Group=quotepages
+EnvironmentFile=/etc/quote-pages/env
+Environment=PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /srv/quote-pages/app/server.py
+Restart=on-failure
+RestartSec=3
+
+# It only ever needs its own data folder, /var/lib/quote-pages.
+StateDirectory=quote-pages
+StateDirectoryMode=0750
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+MemoryMax=300M
+TasksMax=100
+
+[Install]
+WantedBy=multi-user.target
