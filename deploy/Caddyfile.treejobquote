@@ -1,0 +1,29 @@
+
+# Tree quote pages (github.com/nnattheuu-oss/quote-pages).
+# The demo at / is a plain file, so it stays up even if the service is down.
+# Everything else (sign-up, sign-in, each business's page) is the quote-pages service on 127.0.0.1:7871.
+treejobquote.tech {
+	encode gzip
+	@demo path / /index.html
+	handle @demo {
+		root * /srv/quote-pages
+		rewrite * /index.html
+		file_server
+	}
+	handle {
+		request_body {
+			max_size 1MB
+		}
+		reverse_proxy 127.0.0.1:7871
+	}
+	log {
+		output file /var/log/caddy/treejobquote.log {
+			roll_size 10mb
+			roll_keep 5
+		}
+	}
+}
+
+www.treejobquote.tech {
+	redir https://treejobquote.tech{uri} permanent
+}

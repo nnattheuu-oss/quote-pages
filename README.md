@@ -42,6 +42,7 @@ Then open http://127.0.0.1:7871. Emails are written to `/tmp/outbox.jsonl` inste
 - Settings: `/etc/quote-pages/env` (see `deploy/env.example`). Root only. Never in this repo.
 - Data: `/var/lib/quote-pages` (accounts database and logos). Back this folder up.
 - Web server: Caddy serves `/` from `index.html` and passes everything else to the service.
+  The block it uses is `deploy/Caddyfile.treejobquote`.
 
 Handy commands, as root:
 
