@@ -1326,7 +1326,21 @@ def serve():
         pass
 
 
+def as_data_owner():
+    """The command-line tools are run by root. Do the work as whoever owns the data folder (the
+    service's own user), so nothing in there ends up owned by root and locked against the service."""
+    try:
+        st = os.stat(DATA)
+    except OSError:
+        return
+    if os.geteuid() == 0 and st.st_uid != 0:
+        os.setgroups([])
+        os.setgid(st.st_gid)
+        os.setuid(st.st_uid)
+
+
 def cli_link(email):
+    as_data_owner()
     setup()
     email = valid_email(email)
     with DB() as db:
@@ -1354,6 +1368,7 @@ def new_account(db, email, business, phone):
 
 
 def cli_add(email, phone, business):
+    as_data_owner()
     setup()
     with DB() as db:
         acc, problem = new_account(db, email, business, phone)
@@ -1366,6 +1381,7 @@ def cli_add(email, phone, business):
 
 
 def cli_remove(email):
+    as_data_owner()
     setup()
     with DB() as db:
         acc = db.execute('SELECT * FROM accounts WHERE email=?', (valid_email(email),)).fetchone()

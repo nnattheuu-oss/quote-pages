@@ -52,6 +52,7 @@ Handy commands, as root:
     python3 app/server.py add someone@example.com "0412 345 678" Their Business Name
     python3 app/server.py remove someone@example.com
     python3 app/server.py testmail you@example.com
+    python3 tests/smoke.py                          # check the running service end to end (makes and deletes a throwaway page)
 
 ## What is kept, and where
 
