@@ -81,6 +81,17 @@ class DirectMail(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.inbox = Inbox(free_port())
+        # First with direct sending not switched on: the key can be made and its DNS record read,
+        # but no email goes out and the demo does not offer sign-up. That is the order on a real
+        # server: key, DNS records, a test email, and only then the switch.
+        early = Site(mail=False, extra={'QP_MAIL_FROM': 'Tree Job Quote <signin@treejobquote.test>'})
+        try:
+            made = subprocess.run([sys.executable, SERVER, 'mailkey'], env=early.env, capture_output=True, text=True)
+            assert 'Made a new mail-signing key' in made.stdout, made.stdout + made.stderr
+            assert Browser(early).get('/api/dkim').status == 200
+            assert json.loads(Browser(early).get('/api/open').text) == {'signup': False}
+        finally:
+            early.stop()
         cls.site = Site(mail=False, extra={
             'QP_DIRECT_MAIL': '1', 'QP_TEST_MX': f'127.0.0.1:{cls.inbox.server_address[1]}', 'QP_TEST_RETRY': '0.5,0.5,0.5',
             'QP_MAIL_FROM': 'Tree Job Quote <signin@treejobquote.test>', 'QP_REPLY_TO': 'owner@example.com',

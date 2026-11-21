@@ -1067,7 +1067,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/api/open':  # the demo asks this before it offers "Make my page"
             return self.json(200, {'signup': mail_on()})
         if path == '/api/dkim':  # the public half of the mail-signing key, for the domain's DNS. Public by design
-            if not (DIRECT_MAIL and os.path.exists(DKIM_KEY)):
+            if not os.path.exists(DKIM_KEY):
                 raise Halt(404, 'Not found', 'text/plain; charset=utf-8')
             name, value = dkim_public_record()
             return self.json(200, {'name': name, 'value': value})
